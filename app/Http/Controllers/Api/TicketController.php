@@ -8,6 +8,7 @@ use App\Models\Contract;
 use Illuminate\Http\Request;
 use Psy\Exception\Exception;
 use App\Http\Controllers\Controller;
+use App\Notifications\NewTicketNotification;
 
 class TicketController extends Controller
 {
@@ -60,12 +61,26 @@ class TicketController extends Controller
             'image' => 'sometimes|image',
         ]);
 
+        $abogado = User::role('abogado')->get()->random();
+
         $ticket = $contract->tickets()->create([
             'title' => $request->title,
             'description' => $request->description,
             'arrendador_id' => $contract->user_id,
-            'abogado_id' => User::role('abogado')->get()->random()->id,
+            'abogado_id' => $abogado->id,
         ]);
+
+        auth()->user()->notify(new NewTicketNotification([
+            'message' => 'Hemos recibido tu mensaje, en breve te daremos respuesta',
+            'ticket' => $ticket,
+            'url' => url("contracts/{$ticket->contract->id}/tickets/$ticket->id")
+        ]));
+
+        $abogado->notify(new NewTicketNotification([
+            'message' => 'Se te ha asignado un nuevo ticket',
+            'ticket' => $ticket,
+            'url' => url("abogado-tickets/$ticket->id")
+        ]));
 
         return response()->json([
             'message' => 'Ticket creado satisfactoriamente',
